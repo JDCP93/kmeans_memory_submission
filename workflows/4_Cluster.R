@@ -1,7 +1,7 @@
 ###############################################################################
-###                              kmeans                                     ###
+###               k-means clustering + regression pt. 1                     ###
 ###############################################################################
-# A workflow to perform k-means clustering on sites
+# A workflow to perform the clustering of k-means clustering+regression on sites
 
 
 ###############################################################################
@@ -42,12 +42,22 @@ sites = read_csv(paste0("inputs/",
                  show_col_types = F) %>% 
         unlist()
 
-# Create inputs for parallel clustering
+# Expand input grid
 g <- expand.grid(sites=sites,
-                 k=seq)
+                 k=seq,
+                 clustmet = c(T),
+                 clustlag = c(T,F),
+                 regmet = c(T),
+                 reglag = c(T,F)) %>%
+      filter(clustlag==reglag)
 
 # Define the parallel worker function
-worker = function(Site,k){
+worker = function(Site,
+                  k,
+                  cluster_include_met,
+                  cluster_include_lags,
+                  regress_include_met,
+                  regress_include_lags){
   
   # Load the input file and extract required data
   load(paste0("inputs/FLUXNET_processed/",
@@ -108,9 +118,23 @@ worker = function(Site,k){
 }
 
 # Perform k-means clustering in parallel
-foo = mcmapply(FUN = function(Site,k) worker(Site,k),
+Cluster = mcmapply(FUN = function(Site,
+                              k,                                
+                              cluster_include_met,
+                              cluster_include_lags,
+                              regress_include_met,
+                              regress_include_lags) worker(Site,
+                                                           k,
+                                                           cluster_include_met,
+                                                           cluster_include_lags,
+                                                           regress_include_met,
+                                                           regress_include_lags),
                g$sites,
                g$k,
+               g$clustmet,
+               g$clustlag,
+               g$regmet,
+               g$reglag,
                mc.cores = 16)
 
 ###############################################################################

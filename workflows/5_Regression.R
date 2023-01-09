@@ -1,7 +1,7 @@
 ###############################################################################
-###                              kmeans                                     ###
+###               k-means clustering + regression pt. 2                     ###
 ###############################################################################
-# A workflow to perform k-means clustering on sites
+# A workflow to perform the regression of k-means clustering+regression on sites
 
 
 ###############################################################################
@@ -39,13 +39,15 @@ sites = read_csv(paste0("inputs/",
                  show_col_types = F) %>% 
         unlist()
 
+# Expand input grid
 g <- expand.grid(sites=sites,
                  k=seq,
-                 clustmet = T,
+                 clustmet = c(T),
                  clustlag = c(T,F),
-                 regmet = c(T,F),
+                 regmet = c(T),
                  reglag = c(T,F)) %>%
-  filter(!(regmet == F & reglag == F))
+  filter(clustlag==reglag)
+  
 
 worker = function(Site,
                   k,
@@ -54,6 +56,7 @@ worker = function(Site,
                   regress_include_met,
                   regress_include_lags){
   
+  message(Site)
   # Load the input file and extract required data
   load(paste0("inputs/FLUXNET_processed/",
               Site,
@@ -151,7 +154,6 @@ worker = function(Site,
         Flux_df$Flux_pred[clusters==i] = clusterinfo$Flux_pred
         info[[paste0("cluster_",i)]] = clusterinfo
         R2$R2[R2$Cluster==i] = clusterinfo$r.squared
-        
     }
   }
   
@@ -205,25 +207,25 @@ worker = function(Site,
   
   # Place dataframe into output
   output[["wide_coeff_df"]] = wide_coeff_df
-  
+  output[["signif_df"]] = signif_df
   # We perform masking on the coefficient values to ensure that plots only contain
   # relevant and significant information
   # Before applying the masks, we count how many individual values and timesteps
   # are affected by each mask
   masks = list()
   # The coefficients are non-significant in the linear regression
-  masks[["not_signif_obs"]] = sum(!signif_df[,4:ncol(signif_df)])
-  masks[["not_signif_timesteps"]] = sum(rowSums(!signif_df[,4:ncol(signif_df)])>0)
+  masks[["not_signif_obs"]] = sum(!signif_df[,4:ncol(signif_df)],na.rm=T)
+  masks[["not_signif_timesteps"]] = sum(rowSums(!signif_df[,4:ncol(signif_df)])>0,na.rm=T)
   # The |coefficients| are less than 0.1
   #maxval = max(abs(wide_coeff_df[,5:ncol(wide_coeff_df)]))
-  masks[["low_val_obs"]] = sum(abs(wide_coeff_df[,4:ncol(wide_coeff_df)])<0.1 & abs(wide_coeff_df[,4:ncol(wide_coeff_df)])>0)
-  masks[["low_val_timesteps"]] = sum(rowSums(abs(wide_coeff_df[,4:ncol(wide_coeff_df)])<0.1 & abs(wide_coeff_df[,4:ncol(wide_coeff_df)])>0)>0)
+  masks[["low_val_obs"]] = sum(abs(wide_coeff_df[,4:ncol(wide_coeff_df)])<0.1 & abs(wide_coeff_df[,4:ncol(wide_coeff_df)])>0,na.rm=T)
+  masks[["low_val_timesteps"]] = sum(rowSums(abs(wide_coeff_df[,4:ncol(wide_coeff_df)])<0.1 & abs(wide_coeff_df[,4:ncol(wide_coeff_df)])>0,na.rm=T)>0,na.rm=T)
   # The R^2 in the cluster linear regression is too low
-  masks[["low_R2_timesteps"]] = sum(wide_coeff_df$R2<0.2)
+  masks[["low_R2_timesteps"]] = sum(wide_coeff_df$R2<0.2,na.rm=T)
   output[["masks"]] = masks
   # Now that the impact of the masks are recorded, we actually mask
   # Mask non-significant coefficients from linear regression
-  wide_coeff_df[,5:ncol(wide_coeff_df)][!signif_df[,4:ncol(signif_df)]] <- 0
+  wide_coeff_df[,5:ncol(wide_coeff_df)][!signif_df[,4:ncol(signif_df)]] <- NA
   
   # Rearrange
   coeff_df = wide_coeff_df %>% pivot_longer(cols=5:ncol(wide_coeff_df))               
@@ -231,12 +233,9 @@ worker = function(Site,
                                                 replacement = "") %>%
     factor(climvars)
   
-  # Mask further by absolute value less than 0.1, R^2 lower than 0.2
-  # and also remove NaNs
+  # Mask R^2 lower than 0.2
   coeff_df = coeff_df %>%
-    mutate(value=replace(value, abs(value)<0.1,0)) %>%
-    mutate(value=replace(value,R2 < 0.2,0)) %>%
-    mutate(value=replace(value,is.na(value),0))
+    mutate(value=replace(value,R2 < 0.2,NA))
   
   # Place dataframe into output
   output[["coeff_df"]] = coeff_df
@@ -250,7 +249,7 @@ worker = function(Site,
   output[["Site"]]=Site
   output[["k"]]=k
   
-  # Save cluster info
+  # Save cluster info - removed to save space
 #  output[["info"]] = info
   
   # Save outputs
@@ -327,17 +326,17 @@ worker = function(Site,
 
 
 # Perform regressions in parallel
-foo = mcmapply(FUN = function(Site,
-                              k,
-                              cluster_include_met,
-                              cluster_include_lags,
-                              regress_include_met,
-                              regress_include_lags) worker(Site,
-                                                           k,
-                                                           cluster_include_met,
-                                                           cluster_include_lags,
-                                                           regress_include_met,
-                                                           regress_include_lags),
+Regression = mcmapply(FUN = function(Site,
+                                    k,
+                                    cluster_include_met,
+                                    cluster_include_lags,
+                                    regress_include_met,
+                                    regress_include_lags) worker(Site,
+                                                                 k,
+                                                                 cluster_include_met,
+                                                                 cluster_include_lags,
+                                                                 regress_include_met,
+                                                                 regress_include_lags),
                g$sites,
                g$k,
                g$clustmet,

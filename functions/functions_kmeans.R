@@ -7,9 +7,11 @@
 smallclusters = function(clusters,clustersize,Climate,Current,df,i,km){
 
   # clusters = kmeans() output
+  # clustersize = vector of number of observations in each cluster
   # Climate = predictor matrix
   # df = dataframe of observations of predicted flux
   # i = cluster number in question
+  # km = kmeans clustering function output
 
   # Find the climate in the cluster
   climate_cluster_actual = Climate[clusters==i,]

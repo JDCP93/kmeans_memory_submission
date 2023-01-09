@@ -1,4 +1,4 @@
-### Workflow to calculate long-term site metrics such as MAP and PET
+### Workflow to calculate long-term site PPT deficits
 
 ### Begin Setup ###
 # Tidy up
@@ -20,6 +20,7 @@ sites = read_csv(paste0("inputs/longsites.csv"),
                  show_col_types = F) %>% 
   unlist()
 
+# Initialise dataframe
 PPTdef = data.frame()
 
 # Calculate the metrics for each site
@@ -63,6 +64,5 @@ for (Site in sites){
   PPTdef = rbind(PPTdef,df)
 }
 
-
-# save(INFO,file = "inputs/siteinfo.Rdata")
+# Save the data
 save(PPTdef,file = "inputs/sitePPTdeficits.Rdata")
