@@ -187,7 +187,7 @@ for (Site in sites){
       # Load Historical model output
     load(paste0("outputs/kmeans/Qle/",               
                 Site, 
-                "_metlagcluster_metlagregress_729c_nomask.Rdata"))
+                "_metlagcluster_metlagregress_729c.Rdata"))
     
     coeff_df = output$coeff_df 
     # Define coefficient groupings
@@ -327,7 +327,7 @@ legend = get_legend(NEE_box)
 NEE_box = NEE_box + theme(legend.position = "none")
 Qle_box = Qle_box + theme(legend.position = "none")
 
-png(filename = paste0(k,"_PFTsensitivity_boxplot.png"),
+png(filename = "images/Figure4.png",
     width = 16,
     height = 16,
     units = "in",

@@ -41,7 +41,7 @@ for (Site in sites){
               Site,
               "_metcluster_metregress_",
               k,
-              "c_nomask.Rdata"))
+              "c.Rdata"))
   
   instantaneous = output$Flux_df %>% select(Date,Flux_pred)
   names(instantaneous) = c("Date","Instantaneous")
@@ -51,16 +51,18 @@ for (Site in sites){
               Site,
               "_metlagcluster_metlagregress_",
               k,
-              "c_nomask.Rdata"))
+              "c.Rdata"))
   
   historical = output$Flux_df %>% select(Date,Flux,Flux_pred)
   names(historical) = c("Date","Observed","Historical")
   
+  # Extract the scaling data from before modelling occurred
   NEE.df.center = attr(historical$Observed,c("scaled:center"))
   NEE.df.scale = attr(historical$Observed,c("scaled:scale"))
   
   NEE.df = merge(instantaneous,historical,by.x = "Date", by.y = "Date")
   NEE.df$Flux = "NEE"
+  # Take negative to turn NEE into NEP
   NEE.df[,c("Observed","Instantaneous","Historical")] = -NEE.df[,c("Observed","Instantaneous","Historical")]
   
   # Load the instantaneous model output
@@ -68,7 +70,7 @@ for (Site in sites){
               Site,
               "_metcluster_metregress_",
               k,
-              "c_nomask.Rdata"))
+              "c.Rdata"))
   
   instantaneous = output$Flux_df %>% select(Date,Flux_pred)
   names(instantaneous) = c("Date","Instantaneous")
@@ -78,7 +80,7 @@ for (Site in sites){
               Site,
               "_metlagcluster_metlagregress_",
               k,
-              "c_nomask.Rdata"))
+              "c.Rdata"))
   
   historical = output$Flux_df %>% select(Date,Flux,Flux_pred)
   names(historical) = c("Date","Observed","Historical")
@@ -91,6 +93,7 @@ for (Site in sites){
   
   df = rbind(NEE.df,Qle.df)
   
+  # Calculate the monthly statistics for NEE
   MonthAvg.NEE = NEE.df %>% mutate(YearMon = format(as.Date(Date), "%Y-%m")) %>%
     group_by(YearMon) %>%
     summarise(Observed_month_mean = mean(Observed*Qle.df.scale+Qle.df.center),
@@ -120,6 +123,7 @@ for (Site in sites){
            InstantPoorVAR = if_else(Instantaneous_sd<0.5*Observed_sd | 0.5*Instantaneous_sd>Observed_sd,T,F),
            HistoricalPoorVAR = if_else(Historical_sd<0.5*Observed_sd | 0.5*Historical_sd>Observed_sd,T,F))
   
+  # Calculate the daily statistics for NEE
   DailyAvg.NEE = NEE.df %>% mutate(MonDay = format(as.Date(Date), "%m-%d")) %>%
     group_by(MonDay) %>%
     summarise(Observed_mean = mean(Observed*NEE.df.scale+NEE.df.center,na.rm=T),
@@ -145,7 +149,7 @@ for (Site in sites){
            HistoricalPoorVAR = if_else(Historical_sd<0.5*Observed_sd | 0.5*Historical_sd>Observed_sd,T,F))
   
   
-  
+  # Calculate the monthly statistics for LE
   MonthAvg.Qle = Qle.df %>% mutate(YearMon = format(as.Date(Date), "%Y-%m")) %>%
     group_by(YearMon) %>%
     summarise(Observed_month_mean = mean(Observed*Qle.df.scale+Qle.df.center),
@@ -175,6 +179,7 @@ for (Site in sites){
            InstantPoorVAR = if_else(Instantaneous_sd<0.5*Observed_sd | 0.5*Instantaneous_sd>Observed_sd,T,F),
            HistoricalPoorVAR = if_else(Historical_sd<0.5*Observed_sd | 0.5*Historical_sd>Observed_sd,T,F))
   
+  # Calculate the daily statistics for LE
   DailyAvg.Qle = Qle.df %>% mutate(MonDay = format(as.Date(Date), "%m-%d")) %>%
     group_by(MonDay) %>%
     summarise(Observed_mean = mean(Observed*Qle.df.scale+Qle.df.center,na.rm=T),
@@ -301,13 +306,13 @@ for (Site in sites){
 
 
 
-bar = All.Monthly %>% group_by(Site,Flux) %>%
+MonthlySummary = All.Monthly %>% group_by(Site,Flux) %>%
   summarise(InstantPoorMean = if_else(sum(InstantPoorMean)>0,T,F),
             HistoricalPoorMean = if_else(sum(HistoricalPoorMean)>0,T,F),
             InstantPoorVAR = if_else(sum(InstantPoorVAR)>=3,T,F),
             HistoricalPoorVAR = if_else(sum(HistoricalPoorVAR)>=3,T,F))
 
-foo = All.Daily %>% group_by(Site,Flux) %>%
+DailySummary = All.Daily %>% group_by(Site,Flux) %>%
   summarise(InstantPoorMean = if_else(sum(InstantPoorMean)>0,T,F),
             HistoricalPoorMean = if_else(sum(HistoricalPoorMean)>0,T,F),
             InstantPoorMean_percent = if_else(sum(InstantPoorMean_percent)>30,T,F),
@@ -315,27 +320,29 @@ foo = All.Daily %>% group_by(Site,Flux) %>%
             InstantPoorVAR = if_else(sum(InstantPoorVAR)>=91,T,F),
             HistoricalPoorVAR = if_else(sum(HistoricalPoorVAR)>=91,T,F))
 
-sum(foo$InstantPoorMean[foo$Flux=="NEE"])/65
-sum(foo$HistoricalPoorMean[foo$Flux=="NEE"])/65
-sum(foo$InstantPoorVAR[foo$Flux=="NEE" & foo$InstantPoorMean == F])/65
-sum(foo$HistoricalPoorVAR[foo$Flux=="NEE" & foo$HistoricalPoorMean == F])/65
 
-sum(foo$InstantPoorMean[foo$Flux=="Qle"])/65
-sum(foo$HistoricalPoorMean[foo$Flux=="Qle"])/65
-sum(foo$InstantPoorVAR[foo$Flux=="Qle" & foo$InstantPoorMean == F])/65
-sum(foo$HistoricalPoorVAR[foo$Flux=="Qle" & foo$HistoricalPoorMean == F])/65
+# Find the number of sites for each of the categories
+sum(DailySummary$InstantPoorMean[DailySummary$Flux=="NEE"])/65
+sum(DailySummary$HistoricalPoorMean[DailySummary$Flux=="NEE"])/65
+sum(DailySummary$InstantPoorVAR[DailySummary$Flux=="NEE" & DailySummary$InstantPoorMean == F])/65
+sum(DailySummary$HistoricalPoorVAR[DailySummary$Flux=="NEE" & DailySummary$HistoricalPoorMean == F])/65
+
+sum(DailySummary$InstantPoorMean[DailySummary$Flux=="Qle"])/65
+sum(DailySummary$HistoricalPoorMean[DailySummary$Flux=="Qle"])/65
+sum(DailySummary$InstantPoorVAR[DailySummary$Flux=="Qle" & DailySummary$InstantPoorMean == F])/65
+sum(DailySummary$HistoricalPoorVAR[DailySummary$Flux=="Qle" & DailySummary$HistoricalPoorMean == F])/65
 
 
 
-sum(bar$InstantPoorMean[bar$Flux=="NEE"])/65
-sum(bar$HistoricalPoorMean[bar$Flux=="NEE"])/65
-sum(bar$InstantPoorVAR[bar$Flux=="NEE" & bar$InstantPoorMean == F])/65
-sum(bar$HistoricalPoorVAR[bar$Flux=="NEE" & bar$HistoricalPoorMean == F])/65
+sum(MonthlySummary$InstantPoorMean[MonthlySummary$Flux=="NEE"])/65
+sum(MonthlySummary$HistoricalPoorMean[MonthlySummary$Flux=="NEE"])/65
+sum(MonthlySummary$InstantPoorVAR[MonthlySummary$Flux=="NEE" & MonthlySummary$InstantPoorMean == F])/65
+sum(MonthlySummary$HistoricalPoorVAR[MonthlySummary$Flux=="NEE" & MonthlySummary$HistoricalPoorMean == F])/65
 
-sum(bar$InstantPoorMean[bar$Flux=="Qle"])/65
-sum(bar$HistoricalPoorMean[bar$Flux=="Qle"])/65
-sum(bar$InstantPoorVAR[bar$Flux=="Qle" & bar$InstantPoorMean == F])/65
-sum(bar$HistoricalPoorVAR[bar$Flux=="Qle" & bar$HistoricalPoorMean == F])/65
+sum(MonthlySummary$InstantPoorMean[MonthlySummary$Flux=="Qle"])/65
+sum(MonthlySummary$HistoricalPoorMean[MonthlySummary$Flux=="Qle"])/65
+sum(MonthlySummary$InstantPoorVAR[MonthlySummary$Flux=="Qle" & MonthlySummary$InstantPoorMean == F])/65
+sum(MonthlySummary$HistoricalPoorVAR[MonthlySummary$Flux=="Qle" & MonthlySummary$HistoricalPoorMean == F])/65
 
 
 Metrics %>% group_by(Time,Flux,Model) %>%
@@ -350,7 +357,7 @@ Metrics %>% group_by(Time,Flux,Model) %>%
 
 
 
-aaa = All.Daily %>% group_by(Site,Flux) %>%
+All.Daily %>% group_by(Site,Flux) %>%
   summarise(InstantPoorMean = sum(InstantPoorMean),
             HistoricalPoorMean = sum(HistoricalPoorMean),
             InstantPoorMean_percent = sum(InstantPoorMean_percent),

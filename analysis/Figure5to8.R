@@ -16,9 +16,12 @@ library(ggpubr)
 
 ### End Setup ###
 
+# v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v
+#_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_#
+# SET USER INPUTS FOR WORKFLOW
+
 flux = "NEE"
 sitecsv = "longsites.csv"
-k = 729
 
 #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_#
 # ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^
@@ -31,19 +34,17 @@ sites = read_csv(paste0("inputs/",
   unlist()
 
 for (Site in sites){
-
-  print(Site)
   
+      # Load Historical model output
   load(paste0("outputs/kmeans/",
               flux,
               "/",              
               Site,
-              "_metlagcluster_metlagregress_",
-              k,
-              "c_nomask.Rdata"))
+              "_metlagcluster_metlagregress_729c.Rdata"))
   
   coeff_df = output$coeff_df
   
+  # Filter for the lagged precipitation
   coeff_df = coeff_df %>%
     filter(name %in% c("P1to30", 
                        "P31to90",
@@ -53,12 +54,13 @@ for (Site in sites){
                        "P731to1095",
                        "P1096to1460"))
   
+  # Take negative of NEE to produce NEP
   if (flux == "NEE"){coeff_df$value = -coeff_df$value}
   
+  # Define the maximum coefficient value seen
   lim = ceiling(max(abs(coeff_df$value),na.rm=T))
-  lim2 = signif(unname(quantile(abs(coeff_df$value),probs=c(0.99),na.rm=T)),2)
   
-  
+  # Load other data and manipulate into our requirements
   load("inputs/sitePPTdeficits.Rdata")
   
   PPTdef = PPTdef %>% mutate(Date = as.Date(paste0(PPTdef$YearMon,"-01"),format="%Y-%m-%d")) %>%
@@ -79,6 +81,7 @@ for (Site in sites){
   
   coeff_df = rbind(coeff_df,PPTSeries)
   
+  # Give the coefficients nice names
   coeff_df = coeff_df %>%
     mutate(name = as.character(name),
            name = str_replace_all(name, 
@@ -88,6 +91,7 @@ for (Site in sites){
            name=replace(name, name=="Deficit", "Month Deficit"),
            name=replace(name, name=="RollDeficit", "6 Month Deficit"))
   
+  # Turn coefficient names into a factor
   coeff_df$name = coeff_df$name %>% 
     factor(levels=c("6 Month Deficit",
                     "Month Deficit",
@@ -99,12 +103,9 @@ for (Site in sites){
                     "366 to 730",
                     "731 to 1095",
                     "1096 to 1460"))
-  
-  #coeff_df = na.omit(coeff_df)
 
-  
+  # Create a plot from which to extract the legend
   legend_plot = ggplot() +
-    
     geom_linerange(data=coeff_df[!coeff_df$name %in% c("Month Deficit","6 Month Deficit","Rainfall"),],
                    aes(x=name,
                        ymin=Date,
@@ -116,7 +117,6 @@ for (Site in sites){
                            mid = 0,
                            na.value = "white",
                            trans = "pseudo_log",
-                           #oob = scales::squish,
                            limits = c(-1,1)*lim,
                            guide = guide_colourbar(direction = "horizontal",
                                                    title.position = "top",
@@ -183,10 +183,11 @@ for (Site in sites){
     ggtitle(paste0(Site," Lag Weights"),
             paste0(flux," - ",k,"c"))
   
+  # Extract the legend
   legend = get_legend(legend_plot)
   
+  # Create the plot of lagged driver coefficients
   lag_plot = ggplot() +
-    
     geom_linerange(data=coeff_df[!coeff_df$name %in% c("Month Deficit","6 Month Deficit","Rainfall"),],
                    aes(x=name,
                        ymin=Date,
@@ -198,7 +199,6 @@ for (Site in sites){
                                       mid = 0,
                                       na.value = "white",
                                       trans = "pseudo_log",
-                                      #oob = scales::squish,
                                       limits = c(-1,1)*lim,
                                       guide = "none") +
     
@@ -231,6 +231,7 @@ for (Site in sites){
           panel.ontop = TRUE,
           panel.background = element_rect(color = NA, fill = NA))
   
+  # Create the plot of the rainfall deficits
   deficit_plot = ggplot() +
     geom_linerange(data=coeff_df[coeff_df$name %in% c("Month Deficit", "6 Month Deficit"),],
                    aes(x=name,
@@ -282,12 +283,15 @@ for (Site in sites){
           panel.ontop = TRUE,
           panel.background = element_rect(color = NA, fill = NA))
   
+  # Arrange the coefficient and deficit plots together
   plot = ggarrange(lag_plot,deficit_plot, nrow = 2, heights = c(7,3), align = "v")
   
+  # Save the plot data
   coeffplots = ggarrange(plot,legend,nrow=2,heights = c(5,1),labels = c("(c)"), font.label = list(size = 20), hjust = -0.1, vjust = 1.1)
-  save(coeffplots,file = paste0(Site,"_coeffplots_nomask.Rdata"))
+  save(coeffplots,file = paste0("outputs/",Site,"_Figure5to8Style.Rdata"))
   
-  png(filename = paste0("images/CoeffTimeSeries_rolldeficit/",Site,"_coefftimeseries_",flux,"_",k,"c_nomask.png"),
+  # Save the plot
+  png(filename = paste0("images/",Site,"_",flux,"_Figure5to8Style.png"),
       width = 20,
       height = 10,
       units = "in",
@@ -295,6 +299,5 @@ for (Site in sites){
   print(ggarrange(plot,legend,nrow=2,heights = c(5,1)))
   dev.off()
   
-
 }
 

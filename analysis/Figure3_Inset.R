@@ -45,7 +45,7 @@ for (Site in sites){
     # Load Historical model output
     load(paste0("outputs/kmeans/NEE/",               
                 Site, 
-                "_metlagcluster_metlagregress_729c_nomask.Rdata"))
+                "_metlagcluster_metlagregress_729c.Rdata"))
     
     coeff_df = output$coeff_df
     
@@ -176,7 +176,7 @@ for (Site in sites){
     # Load Historical model output
     load(paste0("outputs/kmeans/Qle/",               
                 Site, 
-                "_metlagcluster_metlagregress_729c_nomask.Rdata"))
+                "_metlagcluster_metlagregress_729c.Rdata"))
     
     coeff_df = output$coeff_df
     
