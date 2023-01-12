@@ -176,10 +176,10 @@ R2.Qle.lin.mod = lm(R2.Qle$RelImpMet ~ R2.Qle$AI)
 fit.Rel = rbind(fit.Rel,
                 c("r^2",
                   "LE",
-                  summary(R2.NEE.lin.mod)$r.squared,
+                  summary(R2.Qle.lin.mod)$r.squared,
                   summary(R2.Qle.lin.mod)$coefficients[2,4],
-                  R2.NEE.lin.mod$coefficients[1],
-                  R2.NEE.lin.mod$coefficients[2])) %>%
+                  R2.Qle.lin.mod$coefficients[1],
+                  R2.Qle.lin.mod$coefficients[2])) %>%
   na.omit()
 
 # Calculate the r squared for RelImp ~ EI
@@ -224,10 +224,10 @@ EI.R2.Qle.lin.mod = lm(EI.R2.Qle$RelImpMet ~ EI.R2.Qle$EI)
 EI.fit.Rel = rbind(EI.fit.Rel,
                    c("r^2",
                      "LE",
-                     summary(EI.R2.NEE.lin.mod)$r.squared,
+                     summary(EI.R2.Qle.lin.mod)$r.squared,
                      summary(EI.R2.Qle.lin.mod)$coefficients[2,4],
-                     EI.R2.NEE.lin.mod$coefficients[1],
-                     EI.R2.NEE.lin.mod$coefficients[2])) %>%
+                     EI.R2.Qle.lin.mod$coefficients[1],
+                     EI.R2.Qle.lin.mod$coefficients[2])) %>%
   na.omit()
 
 # Get some summary statistics
